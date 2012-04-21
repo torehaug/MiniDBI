@@ -13,7 +13,6 @@ sub mysql_affected_rows( OpaquePointer $mysql_client )
     { * }
 
 sub mysql_close( OpaquePointer $mysql_client )
-    returns OpaquePointer
     is native('libmysqlclient')
     { * }
 
@@ -77,6 +76,11 @@ sub mysql_library_end()
     { * }
 
 sub mysql_num_rows( OpaquePointer $result_set )
+    returns Int
+    is native('libmysqlclient')
+    { * }
+
+sub mysql_ping( OpaquePointer $mysql_client )
     returns Int
     is native('libmysqlclient')
     { * }
@@ -278,9 +282,8 @@ class MiniDBD::mysql::StatementHandle does MiniDBD::StatementHandle {
 
                     %row_hash{$column_name} = $column_value;
                 }
-            } else {
-                self.finish;
             }
+            self.finish;
 
             $row_hashref = %row_hash;
         }
@@ -294,6 +297,7 @@ class MiniDBD::mysql::StatementHandle does MiniDBD::StatementHandle {
 
     method finish() {
         if defined( $!result_set ) {
+	   warn("-- Clearing result");
             mysql_free_result($!result_set);
             $!result_set   = Mu;
             @!column_names = Mu;
@@ -305,6 +309,8 @@ class MiniDBD::mysql::StatementHandle does MiniDBD::StatementHandle {
 class MiniDBD::mysql::Connection does MiniDBD::Connection {
     has $!mysql_client;
     has $!RaiseError;
+    has $isConnected;
+
     submethod BUILD(:$!mysql_client, :$!RaiseError) { }
     method prepare( Str $statement ) {
         # warn "in MiniDBD::mysql::Connection.prepare()";
@@ -313,12 +319,44 @@ class MiniDBD::mysql::Connection does MiniDBD::Connection {
             statement    => $statement,
             RaiseError   => $!RaiseError
         );
+	$!isConnected = Bool::True;
         return $statement_handle;
     }
+
     method mysql_insertid() {
         mysql_insert_id($!mysql_client);
         # but Parrot NCI cannot return an unsigned  long long :-(
     }
+
+    method disconnect() {
+	warn("** Calling mysql_disconnect in DBD");
+	if ($!isConnected) {
+        	mysql_close($!mysql_client);
+	
+        	my $error = mysql_error( $!mysql_client );
+        	if ($error ne '') {
+        	        warn('mysql-ping-error:"'~ $error ~'"');
+        	}
+		$!isConnected = Bool::False;
+	}
+	return Bool::True;
+    }
+
+    method ping() {
+	if (! $!isConnected) {
+		return Bool::False;
+	}
+
+        my $pingValue = mysql_ping($!mysql_client);
+
+        my $error = mysql_error( $!mysql_client );
+        if ($error ne '') {
+                warn('mysql-ping-error:"'~ $error ~'"');
+        }
+        return !$pingValue;
+
+    }
+
 }
 
 class MiniDBD::mysql:auth<mberends>:ver<0.0.1> {

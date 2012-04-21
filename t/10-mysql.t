@@ -30,7 +30,7 @@
 
 use Test;
 
-plan 87;
+plan 90;
 
 use MiniDBI;
 
@@ -77,13 +77,28 @@ ok $drh_version > 0, "MiniDBD::mysql version $drh_version"; # test 2
 #ok defined $dbh, "Connected to database";
 #ok $dbh->disconnect();
 #
-my $dbh = MiniDBI.connect( $test_dsn, $test_user, $test_password,
-        RaiseError => 1, PrintError => 1, AutoCommit => 0
-);
-# die "ERROR: {MiniDBI.errstr}. Can't continue test" if $!.defined;
-ok $dbh.defined, "Connected to database"; # test 3
-my $result = $dbh.disconnect();
-ok $result, 'disconnect returned true'; # test 4
+	my $dbh = MiniDBI.connect( $test_dsn, $test_user, $test_password,
+	        RaiseError => 1, PrintError => 1, AutoCommit => 0
+	);
+	# die "ERROR: {MiniDBI.errstr}. Can't continue test" if $!.defined;
+	ok $dbh.defined, "Connected to database"; # test 3
+	my $result = $dbh.disconnect();
+	ok $result, 'disconnect returned true'; # test 4
+
+
+{
+	# test ping
+	my $dbh = MiniDBI.connect( $test_dsn, $test_user, $test_password,
+	        RaiseError => 1, PrintError => 1, AutoCommit => 0
+	);
+	# die "ERROR: {MiniDBI.errstr}. Can't continue test" if $!.defined;
+	ok $dbh.defined, "Connected to database"; # test 3
+	ok $dbh.ping, "ping database after connect OK"; # test 3
+	my $result = $dbh.disconnect();
+	ok !$dbh.ping, "ping database after disconnect OK"; # test 3
+}
+
+
 
 #-----------------------------------------------------------------------
 # from perl5 DBD/mysql/t/20createdrop.t
@@ -172,6 +187,13 @@ ok $dbh.do("DROP TABLE $table"), "Drop table $table"; # test 19
 ok($sth= $dbh.prepare("DROP TABLE IF EXISTS no_such_table"), "prepare drop no_such_table"); # test 20
 ok($sth.execute(), "execute drop no_such_table..."); # test 21
 is($sth.mysql_warning_count, 1, "...returns an error"); # test 22
+
+
+
+
+
+
+
 
 #-----------------------------------------------------------------------
 # from perl5 DBD/mysql/t/30insertfetch.t
